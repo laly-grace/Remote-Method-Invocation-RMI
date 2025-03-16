@@ -14,7 +14,7 @@ public class ChatAppUI {
     public ChatAppUI() {
         try {
             // Connect to the RMI server
-            chatService = (ChatService) Naming.lookup("//localhost/ChatService");
+            chatService = (ChatService) Naming.lookup("//10.232.77.162/ChatService");
 
             // Get the username from the user
             username = JOptionPane.showInputDialog("Enter your username:");
