@@ -10,11 +10,12 @@ public class ChatAppUI {
     private JTextField messageField;
     private ChatService chatService;
     private String username;
+    private String selectedUser; // Track the selected user for messaging
 
     public ChatAppUI() {
         try {
             // Connect to the RMI server
-            chatService = (ChatService) Naming.lookup("//10.232.77.162/ChatService");
+            chatService = (ChatService) Naming.lookup("//localhost/ChatService");
 
             // Get the username from the user
             username = JOptionPane.showInputDialog("Enter your username:");
@@ -100,8 +101,8 @@ public class ChatAppUI {
     private void sendMessage() {
         try {
             String message = messageField.getText().trim();
-            if (!message.isEmpty()) {
-                chatService.sendMessage(username, message);
+            if (!message.isEmpty() && selectedUser != null) {
+                chatService.sendMessage(username, selectedUser, message);
                 messageField.setText("");
                 updateChatMessages(); // Refresh the chat area after sending a message
             }
@@ -113,14 +114,15 @@ public class ChatAppUI {
     private void updatePeriodically() {
         while (true) {
             try {
-                // Fetch the list of connected users and chat messages
+                // Fetch the list of connected users
                 List<String> users = chatService.getClients();
-                List<String> messages = chatService.getMessages();
 
                 // Update the UI
                 SwingUtilities.invokeLater(() -> {
                     updateUserList(users);
-                    updateChatMessages(messages);
+                    if (selectedUser != null) {
+                        updateChatMessages(); // Update chat messages for the selected user
+                    }
                 });
 
                 Thread.sleep(3000); // Update every 3 seconds
@@ -133,16 +135,18 @@ public class ChatAppUI {
     private void updateUserList(List<String> users) {
         leftPanel.removeAll();
         for (String user : users) {
-            JButton userButton = new JButton(user);
-            userButton.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-            userButton.setBackground(new Color(240, 240, 240));
-            userButton.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-            userButton.setFocusPainted(false);
-            userButton.addActionListener(e -> {
-                // Handle user selection (if needed)
-                System.out.println("Selected user: " + user);
-            });
-            leftPanel.add(userButton);
+            if (!user.equals(username)) { // Don't show the current user in the list
+                JButton userButton = new JButton(user);
+                userButton.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                userButton.setBackground(new Color(240, 240, 240));
+                userButton.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+                userButton.setFocusPainted(false);
+                userButton.addActionListener(e -> {
+                    selectedUser = user; // Set the selected user
+                    updateChatMessages(); // Update chat messages for the selected user
+                });
+                leftPanel.add(userButton);
+            }
         }
         leftPanel.revalidate();
         leftPanel.repaint();
@@ -150,15 +154,13 @@ public class ChatAppUI {
 
     private void updateChatMessages() {
         try {
-            List<String> messages = chatService.getMessages();
-            chatArea.setText(String.join("\n", messages));
+            if (selectedUser != null) {
+                List<String> messages = chatService.getMessages(username);
+                chatArea.setText(String.join("\n", messages));
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private void updateChatMessages(List<String> messages) {
-        chatArea.setText(String.join("\n", messages));
     }
 
     public static void main(String[] args) {
