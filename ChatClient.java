@@ -7,7 +7,7 @@ public class ChatClient {
     public static void main(String[] args) {
         try {
             // Lookup the remote ChatService
-            ChatService chatService = (ChatService) Naming.lookup("//localhost/ChatService");
+            ChatService chatService = (ChatService) Naming.lookup("//10.232.77.162/ChatService");
             
             Scanner scanner = new Scanner(System.in);
             System.out.print("Enter your username: ");
