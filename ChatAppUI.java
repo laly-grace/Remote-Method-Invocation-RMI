@@ -6,6 +6,8 @@ import java.util.List;
 public class ChatAppUI {
     private JFrame frame;
     private JPanel leftPanel;
+    private JTextArea chatArea;
+    private JTextField messageField;
     private ChatService chatService;
     private String username;
 
@@ -26,8 +28,8 @@ public class ChatAppUI {
             // Initialize the UI
             initializeUI();
 
-            // Start a thread to periodically update the user list
-            new Thread(this::updateUserListPeriodically).start();
+            // Start a thread to periodically update the user list and chat messages
+            new Thread(this::updatePeriodically).start();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "Error connecting to the chat server.", "Error", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
@@ -37,7 +39,7 @@ public class ChatAppUI {
 
     private void initializeUI() {
         frame = new JFrame("Chat App - " + username);
-        frame.setSize(400, 600);
+        frame.setSize(500, 600);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
@@ -52,12 +54,14 @@ public class ChatAppUI {
         frame.add(leftScrollPane, BorderLayout.WEST);
 
         // Center panel with chat messages
-        JPanel centerPanel = new JPanel();
-        centerPanel.setBackground(Color.WHITE);
-        centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
-        centerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        chatArea = new JTextArea();
+        chatArea.setEditable(false);
+        chatArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        chatArea.setBackground(Color.WHITE);
+        chatArea.setForeground(new Color(50, 50, 50));
+        chatArea.setMargin(new Insets(10, 10, 10, 10));
 
-        JScrollPane centerScrollPane = new JScrollPane(centerPanel);
+        JScrollPane centerScrollPane = new JScrollPane(chatArea);
         centerScrollPane.setBorder(BorderFactory.createEmptyBorder());
         frame.add(centerScrollPane, BorderLayout.CENTER);
 
@@ -66,9 +70,10 @@ public class ChatAppUI {
         bottomPanel.setBackground(new Color(240, 240, 240));
         bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JTextField messageField = new JTextField("Type your message here...");
+        messageField = new JTextField();
         messageField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         messageField.setBackground(Color.WHITE);
+        messageField.setForeground(new Color(50, 50, 50));
         messageField.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(200, 200, 200)),
             BorderFactory.createEmptyBorder(5, 10, 5, 10)
@@ -82,8 +87,8 @@ public class ChatAppUI {
         sendButton.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
         // Send message action
-        sendButton.addActionListener(e -> sendMessage(messageField));
-        messageField.addActionListener(e -> sendMessage(messageField));
+        sendButton.addActionListener(e -> sendMessage());
+        messageField.addActionListener(e -> sendMessage());
 
         bottomPanel.add(messageField, BorderLayout.CENTER);
         bottomPanel.add(sendButton, BorderLayout.EAST);
@@ -92,24 +97,32 @@ public class ChatAppUI {
         frame.setVisible(true);
     }
 
-    private void sendMessage(JTextField messageField) {
+    private void sendMessage() {
         try {
             String message = messageField.getText().trim();
             if (!message.isEmpty()) {
                 chatService.sendMessage(username, message);
                 messageField.setText("");
+                updateChatMessages(); // Refresh the chat area after sending a message
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void updateUserListPeriodically() {
+    private void updatePeriodically() {
         while (true) {
             try {
-                // Fetch the list of connected users from the server
-                List<String> users = chatService.getClients(); // Assuming getClients() is added to ChatService
-                updateUserList(users);
+                // Fetch the list of connected users and chat messages
+                List<String> users = chatService.getClients();
+                List<String> messages = chatService.getMessages();
+
+                // Update the UI
+                SwingUtilities.invokeLater(() -> {
+                    updateUserList(users);
+                    updateChatMessages(messages);
+                });
+
                 Thread.sleep(3000); // Update every 3 seconds
             } catch (Exception e) {
                 e.printStackTrace();
@@ -118,17 +131,34 @@ public class ChatAppUI {
     }
 
     private void updateUserList(List<String> users) {
-        SwingUtilities.invokeLater(() -> {
-            leftPanel.removeAll();
-            for (String user : users) {
-                JLabel userLabel = new JLabel(user);
-                userLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-                userLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-                leftPanel.add(userLabel);
-            }
-            leftPanel.revalidate();
-            leftPanel.repaint();
-        });
+        leftPanel.removeAll();
+        for (String user : users) {
+            JButton userButton = new JButton(user);
+            userButton.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            userButton.setBackground(new Color(240, 240, 240));
+            userButton.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+            userButton.setFocusPainted(false);
+            userButton.addActionListener(e -> {
+                // Handle user selection (if needed)
+                System.out.println("Selected user: " + user);
+            });
+            leftPanel.add(userButton);
+        }
+        leftPanel.revalidate();
+        leftPanel.repaint();
+    }
+
+    private void updateChatMessages() {
+        try {
+            List<String> messages = chatService.getMessages();
+            chatArea.setText(String.join("\n", messages));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void updateChatMessages(List<String> messages) {
+        chatArea.setText(String.join("\n", messages));
     }
 
     public static void main(String[] args) {
