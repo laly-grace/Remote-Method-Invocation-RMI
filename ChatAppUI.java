@@ -1,20 +1,42 @@
 import javax.swing.*;
 import java.awt.*;
-import java.util.ArrayList;
+import java.rmi.Naming;
 import java.util.List;
 
 public class ChatAppUI {
     private JFrame frame;
     private JPanel leftPanel;
-    private List<String> connectedUsers = new ArrayList<>();
+    private ChatService chatService;
+    private String username;
 
     public ChatAppUI() {
-        initializeUI();
-        simulateUserConnections(); // Simulate users connecting to the server
+        try {
+            // Connect to the RMI server
+            chatService = (ChatService) Naming.lookup("//localhost/ChatService");
+
+            // Get the username from the user
+            username = JOptionPane.showInputDialog("Enter your username:");
+            if (username == null || username.trim().isEmpty()) {
+                System.exit(0); // Exit if no username is provided
+            }
+
+            // Register the user with the server
+            chatService.registerClient(username);
+
+            // Initialize the UI
+            initializeUI();
+
+            // Start a thread to periodically update the user list
+            new Thread(this::updateUserListPeriodically).start();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Error connecting to the chat server.", "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     private void initializeUI() {
-        frame = new JFrame("Chat App");
+        frame = new JFrame("Chat App - " + username);
         frame.setSize(400, 600);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
@@ -34,24 +56,6 @@ public class ChatAppUI {
         centerPanel.setBackground(Color.WHITE);
         centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
         centerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        String[] messages = {
-            "Hello, I'm Russell. How can I help you today?",
-            "I need more information about Developer Plan.",
-            "Hi, Russell",
-            "Are we meeting today? Project has been already finished and I have results to show you.",
-            "We'll am not sure. I have results to show you.",
-            "The rest of the team is not here yet. Maybe in an hour or so?",
-            "Have you faced any problems at the last phase of the project?",
-            "Actually everything was fine. I'm very excited to show this to our team."
-        };
-
-        for (String message : messages) {
-            JLabel messageLabel = new JLabel(message);
-            messageLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-            messageLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-            centerPanel.add(messageLabel);
-        }
 
         JScrollPane centerScrollPane = new JScrollPane(centerPanel);
         centerScrollPane.setBorder(BorderFactory.createEmptyBorder());
@@ -77,6 +81,10 @@ public class ChatAppUI {
         sendButton.setFocusPainted(false);
         sendButton.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
+        // Send message action
+        sendButton.addActionListener(e -> sendMessage(messageField));
+        messageField.addActionListener(e -> sendMessage(messageField));
+
         bottomPanel.add(messageField, BorderLayout.CENTER);
         bottomPanel.add(sendButton, BorderLayout.EAST);
         frame.add(bottomPanel, BorderLayout.SOUTH);
@@ -84,26 +92,43 @@ public class ChatAppUI {
         frame.setVisible(true);
     }
 
-    private void simulateUserConnections() {
-        // Simulate users connecting to the server
-        Timer timer = new Timer(2000, e -> {
-            String newUser = "User " + (connectedUsers.size() + 1);
-            connectedUsers.add(newUser);
-            updateUserList();
-        });
-        timer.start();
+    private void sendMessage(JTextField messageField) {
+        try {
+            String message = messageField.getText().trim();
+            if (!message.isEmpty()) {
+                chatService.sendMessage(username, message);
+                messageField.setText("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void updateUserList() {
-        leftPanel.removeAll();
-        for (String user : connectedUsers) {
-            JLabel userLabel = new JLabel(user);
-            userLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-            userLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-            leftPanel.add(userLabel);
+    private void updateUserListPeriodically() {
+        while (true) {
+            try {
+                // Fetch the list of connected users from the server
+                List<String> users = chatService.getClients(); // Assuming getClients() is added to ChatService
+                updateUserList(users);
+                Thread.sleep(3000); // Update every 3 seconds
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        leftPanel.revalidate();
-        leftPanel.repaint();
+    }
+
+    private void updateUserList(List<String> users) {
+        SwingUtilities.invokeLater(() -> {
+            leftPanel.removeAll();
+            for (String user : users) {
+                JLabel userLabel = new JLabel(user);
+                userLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                userLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+                leftPanel.add(userLabel);
+            }
+            leftPanel.revalidate();
+            leftPanel.repaint();
+        });
     }
 
     public static void main(String[] args) {
