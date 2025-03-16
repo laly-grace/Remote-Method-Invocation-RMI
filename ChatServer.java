@@ -3,19 +3,16 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
 
-// Implementing the RMI Chat Service
 public class ChatServer extends UnicastRemoteObject implements ChatService {
     private List<String> messages;
     private List<String> clients;
 
-    // Constructor
     protected ChatServer() throws RemoteException {
         super();
         messages = new ArrayList<>();
         clients = new ArrayList<>();
     }
 
-    // Method to send a message
     @Override
     public synchronized void sendMessage(String username, String message) throws RemoteException {
         String formattedMessage = username + ": " + message;
@@ -23,13 +20,11 @@ public class ChatServer extends UnicastRemoteObject implements ChatService {
         System.out.println("New Message: " + formattedMessage);
     }
 
-    // Method to retrieve chat history
     @Override
     public synchronized List<String> getMessages() throws RemoteException {
         return new ArrayList<>(messages);
     }
 
-    // Method to register a new client
     @Override
     public synchronized void registerClient(String username) throws RemoteException {
         if (!clients.contains(username)) {
@@ -38,7 +33,11 @@ public class ChatServer extends UnicastRemoteObject implements ChatService {
         }
     }
 
-    // Main method to start the server
+    @Override
+    public synchronized List<String> getClients() throws RemoteException {
+        return new ArrayList<>(clients); // Return the list of connected clients
+    }
+
     public static void main(String[] args) {
         try {
             ChatServer server = new ChatServer();
